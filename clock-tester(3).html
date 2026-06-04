@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Is My Clock Correct?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f7f5;
+    --white: #ffffff;
+    --border: #e4e4e0;
+    --text: #1a1a18;
+    --muted: #888884;
+    --good-bg: #f0faf4;
+    --good-border: #a8dbb8;
+    --good-text: #1a6b3a;
+    --warn-bg: #fffbf0;
+    --warn-border: #f0d080;
+    --warn-text: #7a5500;
+    --bad-bg: #fff5f5;
+    --bad-border: #f0b0b0;
+    --bad-text: #8b1a1a;
+    --blue: #2563eb;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161614;
+      --white: #1f1f1d;
+      --border: #2e2e2b;
+      --text: #e8e8e4;
+      --muted: #666662;
+      --good-bg: #0d1f14;
+      --good-border: #2a5c3a;
+      --good-text: #5dba7e;
+      --warn-bg: #1a1608;
+      --warn-border: #5a4a10;
+      --warn-text: #c8a030;
+      --bad-bg: #1a0d0d;
+      --bad-border: #5a2020;
+      --bad-text: #c06060;
+      --blue: #3b82f6;
+    }
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  /* Result banner */
+  .result-banner {
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1.75rem;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    transition: background 0.4s, border-color 0.4s;
+  }
+  .result-banner.good   { background: var(--good-bg); border-color: var(--good-border); }
+  .result-banner.warn   { background: var(--warn-bg); border-color: var(--warn-border); }
+  .result-banner.bad    { background: var(--bad-bg);  border-color: var(--bad-border);  }
+
+  .result-icon { font-size: 2.25rem; line-height: 1; margin-bottom: 0.5rem; }
+
+  .result-headline {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    transition: color 0.4s;
+  }
+  .result-banner.good .result-headline { color: var(--good-text); }
+  .result-banner.warn .result-headline { color: var(--warn-text); }
+  .result-banner.bad  .result-headline { color: var(--bad-text);  }
+
+  .result-sub {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .result-banner.good .result-sub { color: #4a9468; }
+  .result-banner.warn .result-sub { color: #9a7020; }
+  .result-banner.bad  .result-sub { color: #b05050; }
+
+  /* Time row */
+  .time-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .time-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+  }
+
+  .time-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .time-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.15rem;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+
+  .time-date {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .stat {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  /* Button */
+  .btn {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-bottom: 1rem;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.88; }
+  .btn:active:not(:disabled) { transform: scale(0.99); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--blue);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s linear, background 0.4s;
+  }
+  .progress-fill.good { background: var(--good-text); }
+  .progress-fill.warn { background: #d4a020; }
+  .progress-fill.bad  { background: #c04040; }
+  .progress-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+  .footer a { color: var(--muted); }
+
+  .spinning { display: inline-block; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="result-banner" id="banner">
+    <div class="result-icon" id="bannerIcon">🕐</div>
+    <div class="result-headline" id="bannerHead">Checking your clock…</div>
+    <div class="result-sub" id="bannerSub">Fetching the current time from the internet</div>
+  </div>
+
+  <div class="time-row">
+    <div class="time-box">
+      <div class="time-label">Your clock</div>
+      <div class="time-value" id="localTime">--:--:--</div>
+      <div class="time-date" id="localDate">—</div>
+    </div>
+    <div class="time-box">
+      <div class="time-label">Correct time</div>
+      <div class="time-value" id="ntpTime">--:--:--</div>
+      <div class="time-date" id="ntpDate">—</div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-label">Offset</div>
+      <div class="stat-value" id="statOffset">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Latency</div>
+      <div class="stat-value" id="statRtt">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Checked</div>
+      <div class="stat-value" id="statTime">—</div>
+    </div>
+  </div>
+
+  <div class="progress-row">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">—</div>
+  </div>
+
+  <button class="btn" id="checkBtn" onclick="checkNTP()">Check again</button>
+
+  <div class="footer">
+    Compares your browser clock against <a href="https://timeapi.io" target="_blank">timeapi.io</a>.
+    Offset is adjusted for network latency.
+  </div>
+
+</div>
+
+<script>
+  const AUTO = 30;
+  let ntpBaseTime = null, ntpBaseLocal = null;
+  let ntpOffset = null;
+  let cdTimer = null, countdown = AUTO;
+
+  // ── formatting ──────────────────────────────────────────────────
+  function pad(n) { return String(n).padStart(2,'0'); }
+  function fmtTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+  function fmtDate(d) {
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const W = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return `${W[d.getDay()]}, ${d.getDate()} ${M[d.getMonth()]}`;
+  }
+
+  // ── live tick ───────────────────────────────────────────────────
+  setInterval(() => {
+    const now = new Date();
+    document.getElementById('localTime').textContent = fmtTime(now);
+    document.getElementById('localDate').textContent = fmtDate(now);
+    if (ntpBaseTime !== null) {
+      const ntp = new Date(ntpBaseTime + (performance.now() - ntpBaseLocal));
+      document.getElementById('ntpTime').textContent = fmtTime(ntp);
+      document.getElementById('ntpDate').textContent = fmtDate(ntp);
+    }
+  }, 250);
+
+  // ── NTP fetch ───────────────────────────────────────────────────
+  async function checkNTP() {
+    const btn = document.getElementById('checkBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinning">↻</span> Checking…';
+    setBanner('idle', '🕐', 'Checking your clock…', 'Fetching the current time from the internet');
+
+    const t0local = Date.now();
+    const sources = [
+      { url: 'https://timeapi.io/api/time/current/zone?timeZone=UTC',    parse: d => new Date(d.dateTime + 'Z').getTime() },
+      { url: 'https://timeapi.world/api/Time/current/zone?timeZone=UTC', parse: d => new Date(d.dateTime + 'Z').getTime() },
+    ];
+
+    let ntpRaw = null, rtt = null, src = '';
+    for (const s of sources) {
+      try {
+        const r0 = performance.now();
+        const res = await fetch(s.url, { cache: 'no-store' });
+        const r1 = performance.now();
+        if (!res.ok) continue;
+        const data = await res.json();
+        const v = s.parse(data);
+        if (!v || isNaN(v)) continue;
+        ntpRaw = v; rtt = r1 - r0;
+        src = new URL(s.url).hostname;
+        break;
+      } catch(_) {}
+    }
+
+    if (!ntpRaw) {
+      setBanner('bad', '⚠️', 'Could not reach time servers', 'Check your internet connection and try again');
+      btn.disabled = false; btn.textContent = 'Try again';
+      return;
+    }
+
+    const half = rtt / 2;
+    const ntpEpoch = ntpRaw + half;
+    ntpBaseTime = ntpEpoch;
+    ntpBaseLocal = performance.now();
+
+    const localAtMidpoint = t0local + half;
+    const offsetMs = localAtMidpoint - ntpEpoch;
+    ntpOffset = offsetMs;
+
+    // stats
+    const absMs = Math.abs(offsetMs);
+    const offsetStr = absMs < 1000
+      ? (offsetMs > 0 ? '+' : '') + Math.round(offsetMs) + ' ms'
+      : (offsetMs > 0 ? '+' : '') + (offsetMs / 1000).toFixed(1) + ' s';
+
+    document.getElementById('statOffset').textContent = offsetStr;
+    document.getElementById('statRtt').textContent = Math.round(rtt) + ' ms';
+    document.getElementById('statTime').textContent = fmtTime(new Date());
+
+    // verdict
+    if (absMs < 2000) {
+      setBanner('good', '✅', 'Your clock is correct', offsetMs === 0 ? 'Spot on.' : `Off by ${offsetStr} — that's perfectly fine`);
+      document.getElementById('progressFill').className = 'progress-fill good';
+    } else if (absMs < 15000) {
+      const dir = offsetMs > 0 ? 'ahead' : 'behind';
+      setBanner('warn', '⚠️', `Your clock is slightly off`, `It's ${offsetStr.replace('+','')} ${dir} — usually harmless, but worth fixing`);
+      document.getElementById('progressFill').className = 'progress-fill warn';
+    } else {
+      const dir = offsetMs > 0 ? 'ahead' : 'behind';
+      setBanner('bad', '❌', 'Your clock is wrong', `It's ${Math.abs(offsetMs) > 60000
+        ? Math.round(Math.abs(offsetMs)/60000) + ' min' : Math.round(Math.abs(offsetMs)/1000) + ' sec'} ${dir} — check your date & time settings`);
+      document.getElementById('progressFill').className = 'progress-fill bad';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Check again';
+    startCountdown();
+  }
+
+  function setBanner(cls, icon, head, sub) {
+    const b = document.getElementById('banner');
+    b.className = 'result-banner' + (cls === 'idle' ? '' : ' ' + cls);
+    document.getElementById('bannerIcon').textContent = icon;
+    document.getElementById('bannerHead').textContent = head;
+    document.getElementById('bannerSub').textContent  = sub;
+  }
+
+  // ── countdown ───────────────────────────────────────────────────
+  function startCountdown() {
+    if (cdTimer) clearInterval(cdTimer);
+    countdown = AUTO;
+    tick();
+    cdTimer = setInterval(() => { countdown--; tick(); if (countdown <= 0) { clearInterval(cdTimer); checkNTP(); } }, 1000);
+  }
+
+  function tick() {
+    document.getElementById('progressLabel').textContent = `Rechecks in ${countdown}s`;
+    document.getElementById('progressFill').style.width = ((AUTO - countdown) / AUTO * 100) + '%';
+  }
+
+  checkNTP();
+</script>
+</body>
+</html>
