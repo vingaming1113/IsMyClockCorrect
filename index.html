@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Is My Clock Correct?</title>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
 <style>
@@ -323,18 +322,19 @@
     btn.innerHTML = '<span class="spinning">↻</span> Checking…';
     setBanner('idle', '🕐', 'Checking your clock…', 'Fetching the current time from the internet');
 
-    const t0local = Date.now();
     const sources = [
       { url: 'https://timeapi.io/api/time/current/zone?timeZone=UTC',    parse: d => new Date(d.dateTime + 'Z').getTime() },
       { url: 'https://timeapi.world/api/Time/current/zone?timeZone=UTC', parse: d => new Date(d.dateTime + 'Z').getTime() },
     ];
 
-    let ntpRaw = null, rtt = null, src = '';
+    let ntpRaw = null, rtt = null, src = '', localAfter = null;
     for (const s of sources) {
       try {
         const r0 = performance.now();
         const res = await fetch(s.url, { cache: 'no-store' });
         const r1 = performance.now();
+        // Snapshot local time immediately after fetch resolves — minimises drift from page load time
+        localAfter = Date.now();
         if (!res.ok) continue;
         const data = await res.json();
         const v = s.parse(data);
@@ -352,11 +352,14 @@
     }
 
     const half = rtt / 2;
+    // ntpRaw is the time the server stamped ~halfway through the request.
+    // localAfter is our clock right after response arrived, so subtract half RTT
+    // to estimate what our clock read at that same midpoint moment.
+    const localAtMidpoint = localAfter - half;
     const ntpEpoch = ntpRaw + half;
     ntpBaseTime = ntpEpoch;
     ntpBaseLocal = performance.now();
 
-    const localAtMidpoint = t0local + half;
     const offsetMs = localAtMidpoint - ntpEpoch;
     ntpOffset = offsetMs;
 
