@@ -10,7 +10,8 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #f7f7f5;
+    --bg-from: #eef2ff;
+    --bg-to:   #fdf4ff;
     --white: #ffffff;
     --border: #e4e4e0;
     --text: #1a1a18;
@@ -29,7 +30,8 @@
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #161614;
+      --bg-from: #0f1020;
+      --bg-to:   #180f20;
       --white: #1f1f1d;
       --border: #2e2e2b;
       --text: #e8e8e4;
@@ -49,7 +51,8 @@
 
   body {
     font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
+    background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
     display: flex;
@@ -66,7 +69,7 @@
     padding: 2.5rem 2rem;
     width: 100%;
     max-width: 440px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 24px rgba(0,0,0,0.07);
   }
 
   /* Result banner */
@@ -76,12 +79,12 @@
     text-align: center;
     margin-bottom: 1.75rem;
     border: 1.5px solid var(--border);
-    background: var(--bg);
+    background: var(--bg-from);
     transition: background 0.4s, border-color 0.4s;
   }
-  .result-banner.good   { background: var(--good-bg); border-color: var(--good-border); }
-  .result-banner.warn   { background: var(--warn-bg); border-color: var(--warn-border); }
-  .result-banner.bad    { background: var(--bad-bg);  border-color: var(--bad-border);  }
+  .result-banner.good { background: var(--good-bg); border-color: var(--good-border); }
+  .result-banner.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .result-banner.bad  { background: var(--bad-bg);  border-color: var(--bad-border);  }
 
   .result-icon { font-size: 2.25rem; line-height: 1; margin-bottom: 0.5rem; }
 
@@ -95,10 +98,7 @@
   .result-banner.warn .result-headline { color: var(--warn-text); }
   .result-banner.bad  .result-headline { color: var(--bad-text);  }
 
-  .result-sub {
-    font-size: 0.875rem;
-    color: var(--muted);
-  }
+  .result-sub { font-size: 0.875rem; color: var(--muted); }
   .result-banner.good .result-sub { color: #4a9468; }
   .result-banner.warn .result-sub { color: #9a7020; }
   .result-banner.bad  .result-sub { color: #b05050; }
@@ -112,7 +112,7 @@
   }
 
   .time-box {
-    background: var(--bg);
+    background: linear-gradient(135deg, var(--bg-from), var(--bg-to));
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.875rem 1rem;
@@ -140,6 +140,13 @@
     margin-top: 0.15rem;
   }
 
+  .time-tz {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+    opacity: 0.75;
+  }
+
   /* Stats row */
   .stats-row {
     display: flex;
@@ -149,7 +156,7 @@
 
   .stat {
     flex: 1;
-    background: var(--bg);
+    background: linear-gradient(135deg, var(--bg-from), var(--bg-to));
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.65rem 0.75rem;
@@ -250,11 +257,13 @@
       <div class="time-label">Your clock</div>
       <div class="time-value" id="localTime">--:--:--</div>
       <div class="time-date" id="localDate">—</div>
+      <div class="time-tz" id="localTz">—</div>
     </div>
     <div class="time-box">
       <div class="time-label">Correct time</div>
       <div class="time-value" id="ntpTime">--:--:--</div>
       <div class="time-date" id="ntpDate">—</div>
+      <div class="time-tz" id="ntpTz">—</div>
     </div>
   </div>
 
@@ -294,7 +303,19 @@
   let ntpOffset = null;
   let cdTimer = null, countdown = AUTO;
 
-  // ── formatting ──────────────────────────────────────────────────
+  // ── timezone label ───────────────────────────────────────────────
+  function getTzLabel() {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offset = -new Date().getTimezoneOffset();
+      const sign = offset >= 0 ? '+' : '-';
+      const h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+      const m = String(Math.abs(offset) % 60).padStart(2, '0');
+      return `${tz} (UTC${sign}${h}:${m})`;
+    } catch(_) { return ''; }
+  }
+
+  // ── formatting ───────────────────────────────────────────────────
   function pad(n) { return String(n).padStart(2,'0'); }
   function fmtTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
   function fmtDate(d) {
@@ -302,8 +323,19 @@
     const W = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     return `${W[d.getDay()]}, ${d.getDate()} ${M[d.getMonth()]}`;
   }
+  function fmtOffset(ms) {
+    const abs = Math.abs(ms);
+    const sign = ms >= 0 ? '+' : '-';
+    if (abs < 1000)  return `${sign}${Math.round(abs)} ms`;
+    if (abs < 60000) return `${sign}${(abs / 1000).toFixed(1)} sec`;
+    if (abs < 3600000) return `${sign}${Math.round(abs / 60000)} min`;
+    return `${sign}${(abs / 3600000).toFixed(1)} hr`;
+  }
 
-  // ── live tick ───────────────────────────────────────────────────
+  // ── live tick ────────────────────────────────────────────────────
+  const tzLabel = getTzLabel();
+  document.getElementById('localTz').textContent = tzLabel;
+
   setInterval(() => {
     const now = new Date();
     document.getElementById('localTime').textContent = fmtTime(now);
@@ -315,7 +347,22 @@
     }
   }, 250);
 
-  // ── NTP fetch ───────────────────────────────────────────────────
+  // ── NTP fetch (3 samples, take median to filter bad readings) ────
+  async function fetchOnce(url, parse) {
+    const r0 = performance.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    const r1 = performance.now();
+    const localAfter = Date.now();
+    if (!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    const ntpRaw = parse(data);
+    if (!ntpRaw || isNaN(ntpRaw)) throw new Error('bad parse');
+    const rtt = r1 - r0;
+    const half = rtt / 2;
+    const offset = (localAfter - half) - (ntpRaw + half);
+    return { offset, rtt, ntpEpoch: ntpRaw + half };
+  }
+
   async function checkNTP() {
     const btn = document.getElementById('checkBtn');
     btn.disabled = true;
@@ -327,65 +374,66 @@
       { url: 'https://timeapi.world/api/Time/current/zone?timeZone=UTC', parse: d => new Date(d.dateTime + 'Z').getTime() },
     ];
 
-    let ntpRaw = null, rtt = null, src = '', localAfter = null;
+    // Try to get 3 samples from the first working source, take median offset
+    let workingSource = null;
     for (const s of sources) {
-      try {
-        const r0 = performance.now();
-        const res = await fetch(s.url, { cache: 'no-store' });
-        const r1 = performance.now();
-        // Snapshot local time immediately after fetch resolves — minimises drift from page load time
-        localAfter = Date.now();
-        if (!res.ok) continue;
-        const data = await res.json();
-        const v = s.parse(data);
-        if (!v || isNaN(v)) continue;
-        ntpRaw = v; rtt = r1 - r0;
-        src = new URL(s.url).hostname;
-        break;
-      } catch(_) {}
+      try { await fetchOnce(s.url, s.parse); workingSource = s; break; }
+      catch(_) {}
     }
 
-    if (!ntpRaw) {
+    if (!workingSource) {
       setBanner('bad', '⚠️', 'Could not reach time servers', 'Check your internet connection and try again');
       btn.disabled = false; btn.textContent = 'Try again';
       return;
     }
 
-    const half = rtt / 2;
-    // ntpRaw is the time the server stamped ~halfway through the request.
-    // localAfter is our clock right after response arrived, so subtract half RTT
-    // to estimate what our clock read at that same midpoint moment.
-    const localAtMidpoint = localAfter - half;
-    const ntpEpoch = ntpRaw + half;
+    const samples = [];
+    for (let i = 0; i < 3; i++) {
+      try { samples.push(await fetchOnce(workingSource.url, workingSource.parse)); }
+      catch(_) {}
+    }
+
+    if (!samples.length) {
+      setBanner('bad', '⚠️', 'Could not reach time servers', 'Check your internet connection and try again');
+      btn.disabled = false; btn.textContent = 'Try again';
+      return;
+    }
+
+    // Median offset to filter any single bad reading
+    samples.sort((a, b) => a.offset - b.offset);
+    const best = samples[Math.floor(samples.length / 2)];
+    const { offset: offsetMs, rtt, ntpEpoch } = best;
+
     ntpBaseTime = ntpEpoch;
     ntpBaseLocal = performance.now();
-
-    const offsetMs = localAtMidpoint - ntpEpoch;
     ntpOffset = offsetMs;
 
-    // stats
-    const absMs = Math.abs(offsetMs);
-    const offsetStr = absMs < 1000
-      ? (offsetMs > 0 ? '+' : '') + Math.round(offsetMs) + ' ms'
-      : (offsetMs > 0 ? '+' : '') + (offsetMs / 1000).toFixed(1) + ' s';
+    // Update tz label for NTP side (same timezone, it's local display)
+    document.getElementById('ntpTz').textContent = tzLabel;
 
-    document.getElementById('statOffset').textContent = offsetStr;
-    document.getElementById('statRtt').textContent = Math.round(rtt) + ' ms';
+    // Stats
+    const avgRtt = Math.round(samples.reduce((a,s) => a + s.rtt, 0) / samples.length);
+    document.getElementById('statOffset').textContent = fmtOffset(offsetMs);
+    document.getElementById('statRtt').textContent = avgRtt + ' ms';
     document.getElementById('statTime').textContent = fmtTime(new Date());
 
-    // verdict
+    // Verdict
+    const absMs = Math.abs(offsetMs);
+    const dir = offsetMs > 0 ? 'ahead' : 'behind';
+    const fill = document.getElementById('progressFill');
+
     if (absMs < 2000) {
-      setBanner('good', '✅', 'Your clock is correct', offsetMs === 0 ? 'Spot on.' : `Off by ${offsetStr} — that's perfectly fine`);
-      document.getElementById('progressFill').className = 'progress-fill good';
+      setBanner('good', '✅', 'Your clock is correct',
+        absMs < 100 ? 'Spot on.' : `Off by ${fmtOffset(offsetMs)} — that's perfectly fine`);
+      fill.className = 'progress-fill good';
     } else if (absMs < 15000) {
-      const dir = offsetMs > 0 ? 'ahead' : 'behind';
-      setBanner('warn', '⚠️', `Your clock is slightly off`, `It's ${offsetStr.replace('+','')} ${dir} — usually harmless, but worth fixing`);
-      document.getElementById('progressFill').className = 'progress-fill warn';
+      setBanner('warn', '⚠️', 'Your clock is slightly off',
+        `It's ${fmtOffset(offsetMs).replace('+','').replace('-','')} ${dir} — usually harmless, but worth fixing`);
+      fill.className = 'progress-fill warn';
     } else {
-      const dir = offsetMs > 0 ? 'ahead' : 'behind';
-      setBanner('bad', '❌', 'Your clock is wrong', `It's ${Math.abs(offsetMs) > 60000
-        ? Math.round(Math.abs(offsetMs)/60000) + ' min' : Math.round(Math.abs(offsetMs)/1000) + ' sec'} ${dir} — check your date & time settings`);
-      document.getElementById('progressFill').className = 'progress-fill bad';
+      setBanner('bad', '❌', 'Your clock is wrong',
+        `It's ${fmtOffset(offsetMs).replace('+','').replace('-','')} ${dir} — check your date & time settings`);
+      fill.className = 'progress-fill bad';
     }
 
     btn.disabled = false;
@@ -401,12 +449,16 @@
     document.getElementById('bannerSub').textContent  = sub;
   }
 
-  // ── countdown ───────────────────────────────────────────────────
+  // ── countdown ────────────────────────────────────────────────────
   function startCountdown() {
     if (cdTimer) clearInterval(cdTimer);
     countdown = AUTO;
     tick();
-    cdTimer = setInterval(() => { countdown--; tick(); if (countdown <= 0) { clearInterval(cdTimer); checkNTP(); } }, 1000);
+    cdTimer = setInterval(() => {
+      countdown--;
+      tick();
+      if (countdown <= 0) { clearInterval(cdTimer); checkNTP(); }
+    }, 1000);
   }
 
   function tick() {
