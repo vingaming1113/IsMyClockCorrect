@@ -176,6 +176,7 @@
     font-family: 'DM Mono', monospace;
     font-size: 0.85rem;
     color: var(--text);
+    white-space: nowrap;
   }
 
   /* Button */
@@ -426,7 +427,7 @@
       setBanner('good', '✅', 'Your clock is correct',
         absMs < 100 ? 'Spot on.' : `Off by ${fmtOffset(offsetMs)} — that's perfectly fine`);
       fill.className = 'progress-fill good';
-    } else if (absMs < 15000) {
+    } else if (absMs < 60000) {
       setBanner('warn', '⚠️', 'Your clock is slightly off',
         `It's ${fmtOffset(offsetMs).replace('+','').replace('-','')} ${dir} — usually harmless, but worth fixing`);
       fill.className = 'progress-fill warn';
