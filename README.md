@@ -1,3 +1,5 @@
+slop
+
 # 🕐 Is My Clock Correct?
 
 A simple webpage that checks whether your computer's clock is accurate. Open it and it immediately tells you if your time is right.
